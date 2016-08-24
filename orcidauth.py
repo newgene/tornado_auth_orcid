@@ -45,7 +45,8 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
             "client_secret": self.settings[self._OAUTH_SETTINGS_KEY]['client_secret'],
             "grant_type":"authorization_code",
             "redirect_uri": redirect_uri,
-            "code": code
+            "code": code,
+            "scope": '/read-public'
             # "client_secret": self.settings[self._OAUTH_SETTINGS_KEY]['secret'],
         })
 
@@ -54,11 +55,21 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
                    method="POST", headers={'Content-Type': 'application/x-www-form-urlencoded'}, body=body)
 
     def _on_access_token(self, future, response):
+        # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
+        # self.write(theurl + "<br/>")
+        # response = urllib2.urlopen(urllib2.Request(theurl, headers={
+        #     'Content-Type':'application/orcid+json',
+        #     'Authorization': ' Bearer ' + access_token}))
+
         """Callback function for the exchange to the access token."""
         if response.error:
             future.set_exception(AuthError('Orcid auth error: %s' % str(response)))
             return
-
+        # self.write('<br/>')
         args = escape.json_decode(response.body)
+        # access_token=str(args.get('access_token'))
+        # self.write(access_token)
+
+        # self.write('<br/>')
         future.set_result(args)
 

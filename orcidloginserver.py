@@ -9,6 +9,7 @@ import os
 import binascii
 import pathlib
 import functools
+import requests
 
 import tornado.web
 from tornado import gen
@@ -75,11 +76,15 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                     "access_token": access_token,
                 })
 
-                # theurl=self._GET_USER_INFO + orcid+"/orcid-bio/"
-                # self.write(theurl + "<br/>")
-                # response = urllib2.urlopen(urllib2.Request(self._GET_USER_INFO + orcid+"/orcid-bio/", headers={
-                #     'Content-Type':'application/orcid+json',
-                #     'Authorization': 'Bearer ' + access_token}))
+                theurl=self._GET_USER_INFO + orcid+"/orcid-bio/"
+                self.write(theurl + "<br/>")
+
+                endpoint = theurl
+                headers = {"Authorization": "Bearer " + access_token,
+                           "Content-Type": "application/orcid+json"}
+
+                profile=requests.post(endpoint,  headers=headers).json()
+                self.write("user profile : " + str(profile) + "<br/>")
 
                 # self.write(str(response.info().getplist()))
             else:
