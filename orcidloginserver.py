@@ -15,6 +15,7 @@ import json
 import tornado.web
 from tornado import gen
 from tornado.escape import to_unicode
+from tornado import template
 
 from orcidauth import OrcidOAuth2Mixin
 
@@ -54,6 +55,8 @@ class OrcidOAuth2App(tornado.web.Application):
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
 
+
+
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
@@ -63,6 +66,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
+
             user = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
                 code=self.get_argument('code'))
@@ -74,19 +78,19 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             print(access_token)
 
             theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
-            self.write(theurl + "<br/>")
+            # self.write(theurl + "<br/>")
 
-            endpoint = theurl
-            headers = {"Authorization": "Bearer " + access_token,
-                       "Content-Type": "application/orcid+json"}
-
-            # profile = requests.post(endpoint, headers=headers).json()
-            # self.write("user profile : " + str(profile) + "<br/>")
 
             response = urllib2.urlopen(urllib2.Request(theurl, headers={
                 'Content-Type': 'application/orcid+json',
                 'Authorization': ' Bearer ' + access_token}))
-            self.write(str(response.read()))
+            print str(response.read())
+
+            t_dict = {'username': 'jack'}
+            t_dict['orcid'] = orcid
+            self.render('loggedin.html', **t_dict)
+
+
 
             if 1<0 and 'orcid' in user:
                 orcid=user['orcid']
