@@ -11,6 +11,7 @@ import pathlib
 import functools
 import requests
 import json
+from xml.etree.ElementTree import fromstring, ElementTree
 
 import tornado.web
 from tornado import gen
@@ -66,25 +67,41 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
+            # print("####")
+            print self.get_argument('code')
+            user0 = yield super(OrcidOAuth2LoginHandler, self).get_authenticated_user(
+                redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
+                code=self.get_argument('code'))
+            orcid=user0['orcid']
 
             user = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
                 code=self.get_argument('code'))
             # this is where we can read user information from Orcid
             # self.write(str(user))
+            # print("****")
+            # print(user)
 
-            orcid="0000-0001-8319-9227"
             access_token=user.get('access_token')
-            print(access_token)
+            # print(access_token)
 
             theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
             # self.write(theurl + "<br/>")
 
+            # print(theurl)
 
-            response = urllib2.urlopen(urllib2.Request(theurl, headers={
-                'Content-Type': 'application/orcid+json',
-                'Authorization': ' Bearer ' + access_token}))
-            print str(response.read())
+
+            headers = {'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer ' + access_token}
+            req = urllib2.Request(theurl, None, headers)
+            response = urllib2.urlopen(req)
+            print response.read()
+
+
+            # print("REPORT5:")
+            # tree = ElementTree(fromstring(response.read()))
+            # for node in tree.findall('.//path'):
+            #     print node.tag
+            # print("EREPORT5:")
 
             t_dict = {'username': 'jack'}
             t_dict['orcid'] = orcid
@@ -92,42 +109,42 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
 
 
 
-            if 1<0 and 'orcid' in user:
-                orcid=user['orcid']
-                access_token=user['access_token']
-                self.write("user ORCID : " + orcid + "<br/>")
-                self.write("user access_token : " + access_token + "<br/>")
-
-                http = self.get_auth_http_client()
-                body = urllib_parse.urlencode({
-                    "access_token": access_token,
-                })
-
-
-
-                # self.write("tttoken : " + str(json_obj) + "<br/>")
-
-
-
-
-
-                theurl=self._GET_USER_INFO + orcid+"/orcid-bio/"
-                self.write(theurl + "<br/>")
-
-
-
-                endpoint = theurl
-                headers = {"Authorization": "Bearer " + access_token,
-                           "Content-Type": "application/orcid+json"}
-
-                profile=requests.post(endpoint,  headers=headers).json()
-                # self.write("user profile : " + str(profile) + "<br/>")
-
-
-                # self.write(str(response.info().getplist()))
-            else:
-                self.write("timeout, please login again")
-                # self.redirect('/oauth2callback')
+            # if 1<0 and 'orcid' in user:
+            #     orcid=user['orcid']
+            #     access_token=user['access_token']
+            #     self.write("user ORCID : " + orcid + "<br/>")
+            #     self.write("user access_token : " + access_token + "<br/>")
+            #
+            #     http = self.get_auth_http_client()
+            #     body = urllib_parse.urlencode({
+            #         "access_token": access_token,
+            #     })
+            #
+            #
+            #
+            #     # self.write("tttoken : " + str(json_obj) + "<br/>")
+            #
+            #
+            #
+            #
+            #
+            #     theurl=self._GET_USER_INFO + orcid+"/orcid-bio/"
+            #     self.write(theurl + "<br/>")
+            #
+            #
+            #
+            #     endpoint = theurl
+            #     headers = {"Authorization": "Bearer " + access_token,
+            #                "Content-Type": "application/orcid+json"}
+            #
+            #     profile=requests.post(endpoint,  headers=headers).json()
+            #     # self.write("user profile : " + str(profile) + "<br/>")
+            #
+            #
+            #     # self.write(str(response.info().getplist()))
+            # else:
+            print("timeout, please login again")
+            # self.redirect('/oauth2callback')
             return
 
         state = self._get_state()

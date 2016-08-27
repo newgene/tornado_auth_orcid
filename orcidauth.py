@@ -41,15 +41,15 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         http = self.get_auth_http_client()
         body = urllib_parse.urlencode({
             "client_id": self.settings[self._OAUTH_SETTINGS_KEY]['client_id'],
-            "response_type": "code",
-            "scope": '/authenticate',
+            "client_secret": self.settings[self._OAUTH_SETTINGS_KEY]['client_secret'],
+            "grant_type": "authorization_code",
+            "code": code,
             "redirect_uri": redirect_uri
         })
 
-        print(body)
-        http.fetch(self._OAUTH_AUTHORIZE_URL,
-                   functools.partial(self._on_access_token, callback),
-                   method="POST", headers={'Content-Type': 'application/x-www-form-urlencoded'}, body=body)
+        http.fetch(self._OAUTH_ACCESS_TOKEN_URL,
+                   functools.partial(self._on_auth, callback),
+                   method="POST", headers={'Accept':'application/json','Content-Type': 'application/x-www-form-urlencoded'}, body=body)
 
     @_auth_return_future
     def get_read_public_access(self, redirect_uri, code, callback):
@@ -58,6 +58,7 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         body = urllib_parse.urlencode({
             "client_id": self.settings[self._OAUTH_SETTINGS_KEY]['client_id'],
             "client_secret": self.settings[self._OAUTH_SETTINGS_KEY]['client_secret'],
+            "Accept": "application/json",
             "grant_type": "client_credentials",
             # "code": code,
             "scope": '/read-public'
@@ -67,7 +68,7 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
 
         http.fetch(self._OAUTH_ACCESS_TOKEN_URL,
                    functools.partial(self._on_access_token, callback),
-                   method="POST", headers={'Content-Type': 'application/x-www-form-urlencoded'}, body=body)
+                   method="POST", headers={ 'Content-Type': 'application/x-www-form-urlencoded'}, body=body)
 
     def _on_access_token(self, future, response):
         # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
@@ -82,6 +83,26 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
             return
         print(response.body)
         print ("exiting _on_access_token")
+        # self.write('<br/>')
+        args = escape.json_decode(response.body)
+        # access_token=str(args.get('access_token'))
+        # self.write(access_token)
+
+        # self.write('<br/>')
+        future.set_result(args)
+
+    def _on_auth(self, future, response):
+        # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
+        # self.write(theurl + "<br/>")
+        # response = urllib2.urlopen(urllib2.Request(theurl, headers={
+        #     'Content-Type':'application/orcid+json',
+        #     'Authorization': ' Bearer ' + access_token}))
+        print ("entering _on_auth")
+        if response.error:
+            future.set_exception(AuthError('Orcid auth error: %s' % str(response)))
+            return
+        print(response.body)
+        print ("exiting _on_auth")
         # self.write('<br/>')
         args = escape.json_decode(response.body)
         # access_token=str(args.get('access_token'))
