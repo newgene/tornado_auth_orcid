@@ -67,20 +67,36 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
-            # print("####")
+            print("####")
             print self.get_argument('code')
             user0 = yield super(OrcidOAuth2LoginHandler, self).get_authenticated_user(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
                 code=self.get_argument('code'))
+            # auth code is expired
+            if 'errorDesc' in user0:
+                state = self._get_state()
+                self.set_secure_cookie('openid_state', state)
+                yield self.authorize_redirect(state)
+                return
+            print("##@@" + str(user0))
             orcid=user0['orcid']
 
-            user = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
+
+
+            user1 = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
                 code=self.get_argument('code'))
+            print user1
+
+            access_token_string=str(user1['access_token'])
+            print "@@@ user access token is : " + access_token_string
+            user = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
+                orcid_id=orcid,
+                access_token=access_token_string)
             # this is where we can read user information from Orcid
             # self.write(str(user))
-            # print("****")
-            # print(user)
+            print("##$$" + str(user1))
+            print(user)
 
             access_token=user.get('access_token')
             # print(access_token)

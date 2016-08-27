@@ -68,7 +68,21 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
 
         http.fetch(self._OAUTH_ACCESS_TOKEN_URL,
                    functools.partial(self._on_access_token, callback),
-                   method="POST", headers={ 'Content-Type': 'application/x-www-form-urlencoded'}, body=body)
+                   method="POST", headers={ 'Accept': 'application/json'}, body=body)
+
+    @_auth_return_future
+    def get_user_bio(self, orcid_id, access_token, callback):
+        print("entering get_user_bio")
+        http = self.get_auth_http_client()
+        theurl = self._GET_USER_INFO + orcid_id + "/orcid-bio/"
+        # print "UUUU access_token" + access_token
+        body = urllib_parse.urlencode({
+            "dummy": "dummy"})
+        http.fetch(theurl,
+                   functools.partial(self._on_user_bio, callback),
+                   method="POST", headers={'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer '+access_token},body=body)
+        print("exiting get_user_bio")
+
 
     def _on_access_token(self, future, response):
         # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
@@ -83,6 +97,28 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
             return
         print(response.body)
         print ("exiting _on_access_token")
+        # self.write('<br/>')
+        args = escape.json_decode(response.body)
+        # access_token=str(args.get('access_token'))
+        # self.write(access_token)
+
+        # self.write('<br/>')
+        future.set_result(args)
+
+    def _on_user_bio(self, future, response):
+        # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
+        # self.write(theurl + "<br/>")
+        # response = urllib2.urlopen(urllib2.Request(theurl, headers={
+        #     'Content-Type':'application/orcid+json',
+        #     'Authorization': ' Bearer ' + access_token}))
+        print ("entering user_bio_output")
+        print("%%%% " + response.body)
+        """Callback function for the exchange to the access token."""
+        if response.error:
+            future.set_exception(AuthError('Orcid auth error: %s' % str(response)))
+            return
+        print("&&&& " + response.body)
+        print ("exiting user_bio_output")
         # self.write('<br/>')
         args = escape.json_decode(response.body)
         # access_token=str(args.get('access_token'))
