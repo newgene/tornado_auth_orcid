@@ -12,6 +12,8 @@ import functools
 import requests
 import json
 from xml.etree.ElementTree import fromstring, ElementTree
+from lxml import objectify
+
 
 import tornado.web
 from tornado import gen
@@ -84,8 +86,8 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
 
 
             user1 = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
-                redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
-                code=self.get_argument('code'))
+                redirect_uri=self.settings['orcid_oauth']['redirect_uri'])
+            print "^^^ printing user1"
             print user1
 
             access_token_string=str(user1['access_token'])
@@ -95,10 +97,14 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                 access_token=access_token_string)
             # this is where we can read user information from Orcid
             # self.write(str(user))
-            print("##$$" + str(user1))
-            print(user)
 
-            access_token=user.get('access_token')
+            profile=""
+            root = objectify.fromstring(str(user))
+            for element in root.iter():
+                profile=profile+ "%s - %s , " % (str(element.tag).replace("{http://www.orcid.org/ns/orcid}", ""), element.text)
+
+
+            # access_token=user.get('access_token')
             # print(access_token)
 
             theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
@@ -107,10 +113,10 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             # print(theurl)
 
 
-            headers = {'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer ' + access_token}
-            req = urllib2.Request(theurl, None, headers)
-            response = urllib2.urlopen(req)
-            print response.read()
+            # headers = {'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer ' + access_token}
+            # req = urllib2.Request(theurl, None, headers)
+            # response = urllib2.urlopen(req)
+            # print response.read()
 
 
             # print("REPORT5:")
@@ -121,6 +127,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
 
             t_dict = {'username': 'jack'}
             t_dict['orcid'] = orcid
+            t_dict['details'] = profile
             self.render('loggedin.html', **t_dict)
 
 
