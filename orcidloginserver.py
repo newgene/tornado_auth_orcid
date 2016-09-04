@@ -5,7 +5,7 @@
 # run this command to start web server on port 8888 : python orcidloginserver.py
 # Code built by AVEbrahimi (vakilzadeh@gmail.com)
 
-import os
+import sys, os
 import binascii
 import pathlib
 import functools
@@ -19,6 +19,10 @@ from tornado.escape import to_unicode
 from tornado import template
 
 from orcidauth import OrcidOAuth2Mixin
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/tests/Google")
+from googleloginserver import GoogleOAuth2LoginHandler
+import verifyjwt
 
 from tornado.util import unicode_type, ArgReplacer, PY3
 if PY3:
@@ -48,13 +52,25 @@ class OrcidOAuth2App(tornado.web.Application):
                 'scope': ['/authenticate']
             }
         }
+        settings_google = {
+            'template_path': str(pathlib.Path(__file__).parent.resolve() / 'template'),
+            'cookie_secret': 'secret',
+            'xsrf_cookies': True,
+            'debug': True,
+            'google_oauth': {
+                'key': '925655400245-23vg1ci6i86p1tmi54q6rfvfg6bqsi9b.apps.googleusercontent.com',
+                'secret': '2jTuyp4ORQKwasBZumAJiMyj',
+                'redirect_uri': 'http://localhost:8888/oauth2callback',
+                'scope': ['openid', 'email', 'profile']
+            }
+        }
 
         handlers = [
             (r'/', MainHandler),
             (r'/oauth2callback', OrcidOAuth2LoginHandler),
+            (r'/oauth2callbackgoogle', GoogleOAuth2LoginHandler),
         ]
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
-
 
 
 
