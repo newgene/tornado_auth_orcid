@@ -54,7 +54,7 @@ class GoogleOAuth2LoginHandler(tornado.web.RequestHandler, GoogleOAuth2Mixin):
 
             if not valid: raise tornado.web.HTTPError(400, "Invalid ID Token")
 
-
+            self.set_secure_cookie("google_access_token", user['access_token'])
             t_dict = {'google_access_token': user['access_token']}
             self.render('loggedin_google.html', **t_dict)
 

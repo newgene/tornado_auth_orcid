@@ -85,8 +85,6 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
-            print("####")
-            print self.get_argument('code')
             user0 = yield super(OrcidOAuth2LoginHandler, self).get_authenticated_user(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'],
                 code=self.get_argument('code'))
@@ -96,18 +94,15 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                 self.set_secure_cookie('openid_state', state)
                 yield self.authorize_redirect(state)
                 return
-            print("##@@" + str(user0))
             orcid=user0['orcid']
 
 
 
             user1 = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'])
-            print "^^^ printing user1"
-            print user1
 
             access_token_string=str(user1['access_token'])
-            print "@@@ user access token is : " + access_token_string
+            self.set_secure_cookie("google_access_token", user1['access_token'])
             user = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
                 orcid_id=orcid,
                 access_token=access_token_string)
@@ -118,28 +113,6 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             root = objectify.fromstring(str(user))
             for element in root.iter():
                 profile=profile+ "%s - %s , " % (str(element.tag).replace("{http://www.orcid.org/ns/orcid}", ""), element.text)
-
-
-            # access_token=user.get('access_token')
-            # print(access_token)
-
-            theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
-            # self.write(theurl + "<br/>")
-
-            # print(theurl)
-
-
-            # headers = {'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer ' + access_token}
-            # req = urllib2.Request(theurl, None, headers)
-            # response = urllib2.urlopen(req)
-            # print response.read()
-
-
-            # print("REPORT5:")
-            # tree = ElementTree(fromstring(response.read()))
-            # for node in tree.findall('.//path'):
-            #     print node.tag
-            # print("EREPORT5:")
 
             t_dict = {'username': 'jack'}
             t_dict['orcid'] = orcid
