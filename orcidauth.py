@@ -9,8 +9,6 @@ from tornado.auth import _auth_return_future
 from tornado.util import unicode_type, ArgReplacer, PY3
 from tornado import escape
 
-
-
 if PY3:
     import urllib.parse as urlparse
     import urllib.parse as urllib_parse
@@ -52,13 +50,12 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
                    method="POST", headers={'Accept':'application/json','Content-Type': 'application/x-www-form-urlencoded'}, body=body)
 
     @_auth_return_future
-    def get_read_public_access(self, redirect_uri, code, callback):
+    def get_read_public_access(self, redirect_uri, callback):
         print("entering get_read_public_access")
         http = self.get_auth_http_client()
         body = urllib_parse.urlencode({
             "client_id": self.settings[self._OAUTH_SETTINGS_KEY]['client_id'],
             "client_secret": self.settings[self._OAUTH_SETTINGS_KEY]['client_secret'],
-            "Accept": "application/json",
             "grant_type": "client_credentials",
             # "code": code,
             "scope": '/read-public'
@@ -75,12 +72,11 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         print("entering get_user_bio")
         http = self.get_auth_http_client()
         theurl = self._GET_USER_INFO + orcid_id + "/orcid-bio/"
-        # print "UUUU access_token" + access_token
-        body = urllib_parse.urlencode({
-            "dummy": "dummy"})
+        print "ZZZZ access_token" + access_token
+        print "ZZZZ theurl" + theurl
         http.fetch(theurl,
                    functools.partial(self._on_user_bio, callback),
-                   method="POST", headers={'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer '+access_token},body=body)
+                    headers={'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer '+access_token})
         print("exiting get_user_bio")
 
 
@@ -112,20 +108,24 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         #     'Content-Type':'application/orcid+json',
         #     'Authorization': ' Bearer ' + access_token}))
         print ("entering user_bio_output")
-        print("%%%% " + response.body)
+        print("%%%% " + str(response))
         """Callback function for the exchange to the access token."""
         if response.error:
             future.set_exception(AuthError('Orcid auth error: %s' % str(response)))
             return
-        print("&&&& " + response.body)
         print ("exiting user_bio_output")
+
+
+
+            # self.write( str(element.text) + "<br/>")
+        # print json.dumps( tree)
         # self.write('<br/>')
-        args = escape.json_decode(response.body)
+        # args = escape.json_decode(response.body)
         # access_token=str(args.get('access_token'))
         # self.write(access_token)
 
         # self.write('<br/>')
-        future.set_result(args)
+        future.set_result(response.body)
 
     def _on_auth(self, future, response):
         # theurl = self._GET_USER_INFO + orcid + "/orcid-bio/"
