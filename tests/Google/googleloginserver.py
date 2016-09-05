@@ -45,19 +45,19 @@ class GoogleOAuth2LoginHandler(tornado.web.RequestHandler, GoogleOAuth2Mixin):
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
-            state = to_unicode(self.get_secure_cookie('openid_state'))
-            if not state == self.get_argument('state', False):
-                raise tornado.web.HTTPError(400, "Invalid state")
+            # state = to_unicode(self.get_secure_cookie('openid_state'))
+            # if not state == self.get_argument('state', False):
+            #     raise tornado.web.HTTPError(400, "Invalid state")
 
             user = yield self.get_authenticated_user()
-            # g = verifyjwt.GoogleIdToken(user['id_token'])
-            # valid = g.is_valid((yield g.get_certs()), aud=self.settings['google_oauth']['key'])
-            # g = verifyjwt.GoogleIdToken()
             valid = 1
 
             if not valid: raise tornado.web.HTTPError(400, "Invalid ID Token")
-            self.write(user)
-            # self.write(g.token)  # e.g. self.db.save(user)
+
+
+            t_dict = {'google_access_token': user['access_token']}
+            self.render('loggedin_google.html', **t_dict)
+
             return
 
         state = self._get_state()

@@ -52,17 +52,11 @@ class OrcidOAuth2App(tornado.web.Application):
                 'client_secret': 'c16889a0-5dbe-4718-8bb8-d1fcdddc961f',
                 'redirect_uri': 'http://localhost:8888/oauth2callback',
                 'scope': ['/authenticate']
-            }
-        }
-        settings_google = {
-            'template_path': str(pathlib.Path(__file__).parent.resolve() / 'template'),
-            'cookie_secret': 'secret',
-            'xsrf_cookies': True,
-            'debug': True,
+            },
             'google_oauth': {
                 'key': '925655400245-23vg1ci6i86p1tmi54q6rfvfg6bqsi9b.apps.googleusercontent.com',
                 'secret': '2jTuyp4ORQKwasBZumAJiMyj',
-                'redirect_uri': 'http://localhost:8888/oauth2callback',
+                'redirect_uri': 'http://localhost:8888/oauth2callbackgoogle',
                 'scope': ['openid', 'email', 'profile']
             }
         }
