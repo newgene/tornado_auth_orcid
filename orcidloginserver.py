@@ -65,6 +65,7 @@ class OrcidOAuth2App(tornado.web.Application):
             (r'/', MainHandler),
             (r'/oauth2callback', OrcidOAuth2LoginHandler),
             (r'/oauth2callbackgoogle', GoogleOAuth2LoginHandler),
+            (r'/logout', AuthLogoutHandler),
         ]
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
@@ -73,6 +74,11 @@ class OrcidOAuth2App(tornado.web.Application):
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
+
+class AuthLogoutHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.clear_cookie("user")
+        self.redirect("/")
 
 
 class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
@@ -140,44 +146,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             t_dict['details'] = profile
             self.render('loggedin.html', **t_dict)
 
-
-
-            # if 1<0 and 'orcid' in user:
-            #     orcid=user['orcid']
-            #     access_token=user['access_token']
-            #     self.write("user ORCID : " + orcid + "<br/>")
-            #     self.write("user access_token : " + access_token + "<br/>")
-            #
-            #     http = self.get_auth_http_client()
-            #     body = urllib_parse.urlencode({
-            #         "access_token": access_token,
-            #     })
-            #
-            #
-            #
-            #     # self.write("tttoken : " + str(json_obj) + "<br/>")
-            #
-            #
-            #
-            #
-            #
-            #     theurl=self._GET_USER_INFO + orcid+"/orcid-bio/"
-            #     self.write(theurl + "<br/>")
-            #
-            #
-            #
-            #     endpoint = theurl
-            #     headers = {"Authorization": "Bearer " + access_token,
-            #                "Content-Type": "application/orcid+json"}
-            #
-            #     profile=requests.post(endpoint,  headers=headers).json()
-            #     # self.write("user profile : " + str(profile) + "<br/>")
-            #
-            #
-            #     # self.write(str(response.info().getplist()))
-            # else:
             print("timeout, please login again")
-            # self.redirect('/oauth2callback')
             return
 
         state = self._get_state()
