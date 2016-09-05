@@ -5,26 +5,21 @@
 # run this command to start web server on port 8888 : python orcidloginserver.py
 # Code built by AVEbrahimi (vakilzadeh@gmail.com)
 
+from config import *
 import sys, os
 import binascii
 import pathlib
-import functools
-import requests
-import json
-from xml.etree.ElementTree import fromstring, ElementTree
 from lxml import objectify
 
 
 import tornado.web
 from tornado import gen
 from tornado.escape import to_unicode
-from tornado import template
 
 from orcidauth import OrcidOAuth2Mixin
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/tests/Google")
 from googleloginserver import GoogleOAuth2LoginHandler
-import verifyjwt
 
 from tornado.util import unicode_type, ArgReplacer, PY3
 if PY3:
@@ -48,14 +43,14 @@ class OrcidOAuth2App(tornado.web.Application):
             'xsrf_cookies': True,
             'debug': True,
             'orcid_oauth': {
-                'client_id': 'APP-4KYTNK2K2QHQDANU',
-                'client_secret': 'c16889a0-5dbe-4718-8bb8-d1fcdddc961f',
+                'client_id': ORCID_CLIENT_ID,
+                'client_secret': ORCID_CLIENT_SECRET,
                 'redirect_uri': 'http://localhost:8888/oauth2callback',
                 'scope': ['/authenticate']
             },
             'google_oauth': {
-                'key': '925655400245-23vg1ci6i86p1tmi54q6rfvfg6bqsi9b.apps.googleusercontent.com',
-                'secret': '2jTuyp4ORQKwasBZumAJiMyj',
+                'key': GOOGLE_KEY,
+                'secret': GOOGLE_SECRET,
                 'redirect_uri': 'http://localhost:8888/oauth2callbackgoogle',
                 'scope': ['openid', 'email', 'profile']
             }
@@ -74,6 +69,7 @@ class OrcidOAuth2App(tornado.web.Application):
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
+        print(testfig)
 
 class AuthLogoutHandler(tornado.web.RequestHandler):
     def get(self):
