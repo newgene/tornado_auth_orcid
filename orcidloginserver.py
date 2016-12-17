@@ -9,8 +9,10 @@ from config import *
 import sys, os
 import binascii
 import pathlib
-from lxml import objectify
+import json
 
+from elasticsearch import Elasticsearch
+from elasticsearch import exceptions
 
 import tornado.web
 from tornado import gen
@@ -20,19 +22,6 @@ from orcidauth import OrcidOAuth2Mixin
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/tests/Google")
 from googleloginserver import GoogleOAuth2LoginHandler
-
-from tornado.util import unicode_type, ArgReplacer, PY3
-if PY3:
-    import urllib.parse as urlparse
-    import urllib.parse as urllib_parse
-    long = int
-else:
-    import urlparse
-    import urllib as urllib_parse
-
-import urllib
-import urllib2
-
 
 
 class OrcidOAuth2App(tornado.web.Application):
@@ -65,11 +54,10 @@ class OrcidOAuth2App(tornado.web.Application):
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
 
-
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
-        print(testfig)
+
 
 class AuthLogoutHandler(tornado.web.RequestHandler):
     def get(self):
@@ -77,7 +65,42 @@ class AuthLogoutHandler(tornado.web.RequestHandler):
         self.redirect("/")
 
 
+class UserManager(object):
+    index = 'users'
+
+    def __init__(self, elasticsearch):
+        self.elasticsearch = elasticsearch
+        # TODO need to create index before making query
+
+    def get_user(self, user_id):
+        try:
+            result = self.elasticsearch.get(self.index, user_id, realtime=False)
+        except exceptions.NotFoundError:
+            return None
+        return result["_source"]
+
+    def store_user(self, user_id, profile):
+        self.elasticsearch.create(self.index, 'user', profile, id=user_id)
+
+user_manager = UserManager(Elasticsearch())
+
+
 class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
+    def _get_flattened_profile_doc(self, doc):
+        result = {}
+        for key, value in doc.items():
+            if isinstance(value, dict):
+                if 'value' in value:
+                    value = value['value']
+                else:
+                    value = self._get_flattened_profile_doc(value)
+            result[key] = value
+        return result
+
+    def get_profile(self, bio_response):
+        profile = bio_response["orcid-profile"]
+        return self._get_flattened_profile_doc(profile)
+
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
@@ -90,32 +113,32 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                 self.set_secure_cookie('openid_state', state)
                 yield self.authorize_redirect(state)
                 return
-            orcid=user0['orcid']
 
-
+            orcid = user0['orcid']
 
             user1 = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'])
 
-            access_token_string=str(user1['access_token'])
-            self.set_secure_cookie("google_access_token", user1['access_token'])
-            user = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
+            access_token = user1['access_token']
+            self.set_secure_cookie("orcid_access_token", access_token)
+            bio = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
                 orcid_id=orcid,
-                access_token=access_token_string)
+                access_token=access_token)
             # this is where we can read user information from Orcid
             # self.write(str(user))
-
-            profile=""
-            root = objectify.fromstring(str(user))
-            for element in root.iter():
-                profile=profile+ "%s - %s , " % (str(element.tag).replace("{http://www.orcid.org/ns/orcid}", ""), element.text)
+            profile = json.loads(bio.decode('utf-8'))
+            print(profile)
+            profile = self.get_profile(profile)
+            user = user_manager.get_user(orcid)
+            if user is None:
+                user_manager.store_user(orcid, profile)
+            print(bio)
 
             t_dict = {'username': 'jack'}
             t_dict['orcid'] = orcid
             t_dict['details'] = profile
             self.render('loggedin.html', **t_dict)
-
-            print("timeout, please login again")
+            # TODO should really redirect
             return
 
         state = self._get_state()

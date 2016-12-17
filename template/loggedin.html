@@ -22,7 +22,7 @@
             font-size: 48px;
 
         }
-        #message
+        .message
         {
             color:white;
             font-family: Tahoma;
@@ -34,15 +34,14 @@
     <div id="title">
         Hello, you are {{ username }}.
     </div>
-    <div id="message">
+    <div class="message">
         Your ORCID is <span style="color:yellow">{{ orcid }}.</span>
     </div>
-    <div id="message2">
+    <div class="message">
         Profile details : <span style="color:yellow">{{ details }}.</span>
     </div>
-<div id="message3">
-        Click here to signout : <a href="/logout">SIGNOUT</a>
+    <div class="message">
+        Click here to logout : <a href="/logout">LOGOUT</a>
     </div>
-
 </body>
 </html>
