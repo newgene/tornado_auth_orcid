@@ -1,42 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Test Orcid Auth in Tornado</title>
-    <style>
-        body {
-        background-color:#225264;
-            margin-left: 200px;
-            margin-top:200px;
-        }
-
-        body a
-        {
-            color:yellow;
-        }
-        #title
-        {
-            color:white;
-        font-family: "Heiti TC";
-            font-weight: bold;
-            font-size: 48px;
-
-        }
-        #message
-        {
-            color:white;
-            font-family: Tahoma;
-            margin-top: 8px;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block body %}
     <div id="title">
         Hello, you are logged via Google, your access token is (displayed for demo, actually it's saved in secure cookies): <br/>{{ google_access_token }}
     </div>
-<div id="message">
+    <div class="message">
         Click here to signout : <a href="signout"><a href="https://orcid.org/signout">SIGNOUT</a></span></a>
     </div>
-
-</body>
-</html>
+{% end %}

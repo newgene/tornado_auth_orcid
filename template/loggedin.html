@@ -1,37 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Test Orcid Auth in Tornado</title>
-    <style>
-        body {
-        background-color:#225264;
-            margin-left: 200px;
-            margin-top:200px;
-        }
-
-        body a
-        {
-            color:yellow;
-        }
-        #title
-        {
-            color:white;
-        font-family: "Heiti TC";
-            font-weight: bold;
-            font-size: 48px;
-
-        }
-        .message
-        {
-            color:white;
-            font-family: Tahoma;
-            margin-top: 8px;
-        }
-    </style>
-</head>
-<body>
-    <div id="title">
+{% extends "base.html" %}
+{% block body %}
+    <div class="title">
         Hello, you are {{ username }}.
     </div>
     <div class="message">
@@ -43,5 +12,4 @@
     <div class="message">
         Click here to logout : <a href="/logout">LOGOUT</a>
     </div>
-</body>
-</html>
+{% end %}
