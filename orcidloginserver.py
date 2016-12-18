@@ -52,14 +52,10 @@ class OrcidOAuth2App(tornado.web.Application):
             (r'/oauth2callbackgoogle', GoogleOAuth2LoginHandler),
             (r'/enteremail', EnterEmailHandler),
             (r'/emailsent', EmailSentHandler),
+            (r'/verify', VerifyEmailHandler),
             (r'/logout', AuthLogoutHandler),
         ]
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
-
-
-class MainHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.render('index.html')
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -77,6 +73,26 @@ class BaseHandler(tornado.web.RequestHandler):
         return user_id
 
 
+class MainHandler(BaseHandler):
+    def get(self):
+        user_id = self.current_user
+        if not user_id:
+            self.render('index.html')
+        else:
+            user = user_manager.get_user(user_id)
+            profile = user['profile']
+            name = '{} {}'.format(
+                profile['orcid-bio']['personal-details'].get('given-names'),
+                profile['orcid-bio']['personal-details'].get('family-name'),
+            )
+            t_dict = {
+                'name': name,
+                'orcid': user_id,
+                'details': profile
+            }
+            self.render('loggedin.html', **t_dict)
+
+
 class AuthLogoutHandler(BaseHandler):
     allow_nonactive = True
 
@@ -86,15 +102,17 @@ class AuthLogoutHandler(BaseHandler):
         self.redirect("/")
 
 
-class LoggedInHandler(BaseHandler):
-    @tornado.web.authenticated
+class VerifyEmailHandler(tornado.web.RequestHandler):
     def get(self, *args, **kwargs):
-        # render loggedin with user data
-        pass
-
-
-class VerifyEmailHandler(BaseHandler):
-    pass
+        token = self.get_argument('token')
+        result = user_manager.get_user_by_token(token)
+        if result is None:
+            self.send_error(404)
+        else:
+            user_id, user = result
+            user_manager.set_user_active(user_id)
+            self.set_secure_cookie('user', user_id)  # log in if user is not logged in
+            self.redirect('/')
 
 
 class EmailSentHandler(BaseHandler):
@@ -128,6 +146,7 @@ class EnterEmailHandler(BaseHandler):
 
 class UserManager(object):
     index = 'users'
+    doc_type = 'user'
 
     def __init__(self, elasticsearch):
         self.elasticsearch = elasticsearch
@@ -135,18 +154,18 @@ class UserManager(object):
 
     def get_user(self, user_id):
         try:
-            result = self.elasticsearch.get(self.index, user_id, realtime=False)
+            result = self.elasticsearch.get_source(self.index, self.doc_type, user_id)
         except exceptions.NotFoundError:
             return None
-        return result["_source"]
+        return result
 
     def store_user(self, user_id, email, active, profile):
         doc = dict(email=email, active=active, profile=profile)
-        self.elasticsearch.create(self.index, 'user', doc, id=user_id)
+        self.elasticsearch.create(self.index, self.doc_type, doc, id=user_id)
 
     def update_field(self, user_id, field, value):
         update_body = {"doc": {field: value}}
-        self.elasticsearch.update(self.index, 'user', user_id, body=update_body)
+        self.elasticsearch.update(self.index, self.doc_type, user_id, body=update_body)
 
     def set_user_email(self, user_id, email):
         self.update_field(user_id, 'email', email)
@@ -154,8 +173,22 @@ class UserManager(object):
     def set_user_verify_token(self, user_id, token):
         self.update_field(user_id, 'verify_token', token)
 
+    def set_user_active(self, user_id, active=True):
+        self.update_field(user_id, 'active', active)
+
     def get_user_by_token(self, token):
-        pass
+        try:
+            result = self.elasticsearch.search(
+                self.index, self.doc_type,
+                q='verify_token:{}'.format(token)
+            )
+        except exceptions.NotFoundError:
+            return None
+        else:
+            hits = result['hits']['hits']
+            if hits:
+                hit = hits[0]
+                return hit['_id'], hit['_source']
 
 user_manager = UserManager(Elasticsearch())
 
