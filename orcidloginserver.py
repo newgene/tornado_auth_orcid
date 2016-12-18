@@ -10,6 +10,8 @@ import sys, os
 import binascii
 import pathlib
 import json
+from email.message import EmailMessage
+from email.mime.text import MIMEText
 
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
@@ -17,6 +19,8 @@ from elasticsearch import exceptions
 import tornado.web
 from tornado import gen
 from tornado.escape import to_unicode
+from tornado_smtp.client import TornadoSMTP
+
 
 from orcidauth import OrcidOAuth2Mixin
 
@@ -43,7 +47,8 @@ class OrcidOAuth2App(tornado.web.Application):
                 'redirect_uri': 'http://localhost:8888/oauth2callbackgoogle',
                 'scope': ['openid', 'email', 'profile']
             },
-            'login_url': '/'
+            'login_url': '/',
+            'server_address': 'http://localhost:8888'
         }
 
         handlers = [
@@ -129,6 +134,7 @@ class EnterEmailHandler(BaseHandler):
     def get(self, *args, **kwargs):
         self.render("enter_email.html")
 
+    @gen.coroutine
     @tornado.web.authenticated
     def post(self, *args, **kwargs):
         self.check_xsrf_cookie()
@@ -136,12 +142,34 @@ class EnterEmailHandler(BaseHandler):
         user_id = self.current_user
         user_manager.set_user_email(user_id, email)
         token = self.get_verify_token()
-        # TODO send email here
+        yield send_email(
+            email,
+            "Please verify your email",
+            '<a href="{}">Click</a> to verify your email'.format(
+                "{}/verify?token={}".format(self.settings['server_address'], token)
+            )
+        )
         user_manager.set_user_verify_token(user_id, token)
         self.redirect('emailsent')
 
     def get_verify_token(self):
         return to_unicode(binascii.hexlify(os.urandom(64)))
+
+
+@gen.coroutine
+def send_email(to_email, subject, html_body):
+    smtp = TornadoSMTP(SMTP_SERVER, SMTP_PORT)
+    if SMTP_USERNAME and SMTP_PASSWORD:
+        yield smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['To'] = to_email
+    msg['From'] = FROM_EMAIL
+    msg.add_header('Content-Type', 'text/html')
+    msg.set_payload(html_body)
+
+    yield smtp.send_message(msg)
 
 
 class UserManager(object):
