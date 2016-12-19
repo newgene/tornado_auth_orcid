@@ -64,7 +64,6 @@ class OrcidOAuth2App(tornado.web.Application):
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
 
-
 class MainHandler(BaseHandler):
     def get(self):
         user_id = self.current_user
@@ -147,6 +146,7 @@ class EnterEmailHandler(BaseHandler):
 def send_email(to_email, subject, html_body):
     smtp = TornadoSMTP(SMTP_SERVER, SMTP_PORT)
     if SMTP_USERNAME and SMTP_PASSWORD:
+        yield smtp.starttls()
         yield smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
 
     msg = EmailMessage()
@@ -207,11 +207,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             bio = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
                 orcid_id=orcid,
                 access_token=access_token)
-            # this is where we can read user information from Orcid
-            # self.write(str(user))
-            profile = json.loads(bio.decode('utf-8'))
-            print(profile)
-            profile = self.get_profile(profile)
+            profile = self.get_profile(json.loads(bio.decode('utf-8')))
             email = self.get_profile_email(profile)
             user = user_manager.get_user(orcid)
             active = True
@@ -223,6 +219,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                 self.redirect('enteremail')
             else:
                 self.redirect('/')
+            return
 
         state = self._get_state()
         self.set_secure_cookie('openid_state', state)

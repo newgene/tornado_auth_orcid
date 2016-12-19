@@ -1,6 +1,8 @@
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 
+from config import ELASTICSEARCH_HOST, ELASTICSEARCH_PORT
+
 
 class UserManager(object):
     index = 'users'
@@ -48,4 +50,4 @@ class UserManager(object):
                 hit = hits[0]
                 return hit['_id'], hit['_source']
 
-user_manager = UserManager(Elasticsearch())
+user_manager = UserManager(Elasticsearch([{"host": ELASTICSEARCH_HOST, "port": ELASTICSEARCH_PORT}]))
