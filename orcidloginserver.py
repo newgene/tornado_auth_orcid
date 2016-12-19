@@ -11,10 +11,6 @@ import binascii
 import pathlib
 import json
 from email.message import EmailMessage
-from email.mime.text import MIMEText
-
-from elasticsearch import Elasticsearch
-from elasticsearch import exceptions
 
 import tornado.web
 from tornado import gen
@@ -26,6 +22,9 @@ from orcidauth import OrcidOAuth2Mixin
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/tests/Google")
 from googleloginserver import GoogleOAuth2LoginHandler
+from user_manager import user_manager
+from base_handler import BaseHandler
+from api_keys_handler import ApiKeysHandler, ApiKeysActionHandler
 
 
 class OrcidOAuth2App(tornado.web.Application):
@@ -55,6 +54,8 @@ class OrcidOAuth2App(tornado.web.Application):
             (r'/', MainHandler),
             (r'/oauth2callback', OrcidOAuth2LoginHandler),
             (r'/oauth2callbackgoogle', GoogleOAuth2LoginHandler),
+            (r'/api_keys', ApiKeysHandler),
+            (r'/api_keys/(\w+)/(\w+)', ApiKeysActionHandler),
             (r'/enteremail', EnterEmailHandler),
             (r'/emailsent', EmailSentHandler),
             (r'/verify', VerifyEmailHandler),
@@ -63,20 +64,6 @@ class OrcidOAuth2App(tornado.web.Application):
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
 
-class BaseHandler(tornado.web.RequestHandler):
-    allow_nonactive = False
-
-    def get_current_user(self):
-        user_id = self.get_secure_cookie('user')
-        if user_id:
-            user_id = user_id.decode()
-        if self.allow_nonactive:
-            return user_id
-        user = user_manager.get_user(user_id)
-        if not user or not user['active']:
-            return
-        return user_id
-
 
 class MainHandler(BaseHandler):
     def get(self):
@@ -84,7 +71,7 @@ class MainHandler(BaseHandler):
         if not user_id:
             self.render('index.html')
         else:
-            user = user_manager.get_user(user_id)
+            user = self.get_user()
             profile = user['profile']
             name = '{} {}'.format(
                 profile['orcid-bio']['personal-details'].get('given-names'),
@@ -172,55 +159,6 @@ def send_email(to_email, subject, html_body):
     yield smtp.send_message(msg)
 
 
-class UserManager(object):
-    index = 'users'
-    doc_type = 'user'
-
-    def __init__(self, elasticsearch):
-        self.elasticsearch = elasticsearch
-        # TODO need to create index before making query
-
-    def get_user(self, user_id):
-        try:
-            result = self.elasticsearch.get_source(self.index, self.doc_type, user_id)
-        except exceptions.NotFoundError:
-            return None
-        return result
-
-    def store_user(self, user_id, email, active, profile):
-        doc = dict(email=email, active=active, profile=profile)
-        self.elasticsearch.create(self.index, self.doc_type, doc, id=user_id)
-
-    def update_field(self, user_id, field, value):
-        update_body = {"doc": {field: value}}
-        self.elasticsearch.update(self.index, self.doc_type, user_id, body=update_body)
-
-    def set_user_email(self, user_id, email):
-        self.update_field(user_id, 'email', email)
-
-    def set_user_verify_token(self, user_id, token):
-        self.update_field(user_id, 'verify_token', token)
-
-    def set_user_active(self, user_id, active=True):
-        self.update_field(user_id, 'active', active)
-
-    def get_user_by_token(self, token):
-        try:
-            result = self.elasticsearch.search(
-                self.index, self.doc_type,
-                q='verify_token:{}'.format(token)
-            )
-        except exceptions.NotFoundError:
-            return None
-        else:
-            hits = result['hits']['hits']
-            if hits:
-                hit = hits[0]
-                return hit['_id'], hit['_source']
-
-user_manager = UserManager(Elasticsearch())
-
-
 class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
     def _get_flattened_profile_doc(self, doc):
         result = {}
@@ -284,14 +222,7 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
             if not active:
                 self.redirect('enteremail')
             else:
-                # TODO redirect to loggedin
-                return
-            # t_dict = {'username': 'jack'}
-            # t_dict['orcid'] = orcid
-            # t_dict['details'] = profile
-            # self.render('loggedin.html', **t_dict)
-            # self.redirect('enteremail')
-            return
+                self.redirect('/')
 
         state = self._get_state()
         self.set_secure_cookie('openid_state', state)

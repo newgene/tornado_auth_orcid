@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="title">
+    API keys
+</div>
+{% if api_keys %}
+<table>
+    {% for key in api_keys %}
+    <tr>
+        <td>{{ key["api_key"] }}</td>
+        <td>
+            <form method="post" action="api_keys/{{ key['api_key'] }}/{{ 'deactivate' if key['active'] else 'activate'}}">
+                {% module xsrf_form_html() %}
+                <input class="btn" type="submit" value="{{ 'Deactivate' if key['active'] else 'Activate'}}" tabindex="3">
+            </form>
+        </td>
+        <td>
+            <form method="post" action="api_keys/{{ key['api_key'] }}/delete">
+                {% module xsrf_form_html() %}
+                <input class="btn" type="submit" value="Delete" tabindex="3">
+            </form>
+        </td>
+    </tr>
+    {% end %}
+</table>
+{% end %}
+<div class="message">
+    <form method="post">
+        {% module xsrf_form_html() %}
+        <input class="btn" type="submit" value="Generate new key" tabindex="3">
+    </form>
+</div>
+{% end %}
