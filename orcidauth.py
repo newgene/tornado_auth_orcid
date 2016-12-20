@@ -64,7 +64,7 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
 
         http.fetch(self._OAUTH_ACCESS_TOKEN_URL,
                    functools.partial(self._on_access_token, callback),
-                   method="POST", headers={ 'Accept': 'application/json'}, body=body)
+                   method="POST", headers={'Accept': 'application/json'}, body=body)
 
     @_auth_return_future
     def get_user_bio(self, orcid_id, access_token, callback):
@@ -72,7 +72,9 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         theurl = self._GET_USER_INFO + orcid_id + "/orcid-bio/"
         http.fetch(theurl,
                    functools.partial(self._on_user_bio, callback),
-                    headers={'Content-Type': 'application/orcid+json', 'Authorization': 'Bearer '+access_token})
+                    headers={'Accept': 'application/json',
+                             'Content-Type': 'application/orcid+json',
+                             'Authorization': 'Bearer {}'.format(access_token)})
 
 
     def _on_access_token(self, future, response):
@@ -84,7 +86,6 @@ class OrcidOAuth2Mixin(OAuth2Mixin):
         future.set_result(args)
 
     def _on_user_bio(self, future, response):
-        """Callback function for the exchange to the access token."""
         if response.error:
             future.set_exception(AuthError('Orcid auth error: %s' % str(response)))
             return

@@ -9,30 +9,22 @@ from config import *
 import sys, os
 import binascii
 import pathlib
-from lxml import objectify
-
+import json
+from email.message import EmailMessage
 
 import tornado.web
 from tornado import gen
 from tornado.escape import to_unicode
+from tornado_smtp.client import TornadoSMTP
+
 
 from orcidauth import OrcidOAuth2Mixin
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/tests/Google")
 from googleloginserver import GoogleOAuth2LoginHandler
-
-from tornado.util import unicode_type, ArgReplacer, PY3
-if PY3:
-    import urllib.parse as urlparse
-    import urllib.parse as urllib_parse
-    long = int
-else:
-    import urlparse
-    import urllib as urllib_parse
-
-import urllib
-import urllib2
-
+from user_manager import user_manager
+from base_handler import BaseHandler
+from api_keys_handler import ApiKeysHandler, ApiKeysActionHandler
 
 
 class OrcidOAuth2App(tornado.web.Application):
@@ -53,31 +45,145 @@ class OrcidOAuth2App(tornado.web.Application):
                 'secret': GOOGLE_SECRET,
                 'redirect_uri': 'http://localhost:8888/oauth2callbackgoogle',
                 'scope': ['openid', 'email', 'profile']
-            }
+            },
+            'login_url': '/',
+            'server_address': 'http://localhost:8888'
         }
 
         handlers = [
             (r'/', MainHandler),
             (r'/oauth2callback', OrcidOAuth2LoginHandler),
             (r'/oauth2callbackgoogle', GoogleOAuth2LoginHandler),
+            (r'/api_keys', ApiKeysHandler),
+            (r'/api_keys/(\w+)/(\w+)', ApiKeysActionHandler),
+            (r'/enteremail', EnterEmailHandler),
+            (r'/emailsent', EmailSentHandler),
+            (r'/verify', VerifyEmailHandler),
             (r'/logout', AuthLogoutHandler),
         ]
         super(OrcidOAuth2App, self).__init__(handlers, **settings)
 
 
-
-class MainHandler(tornado.web.RequestHandler):
+class MainHandler(BaseHandler):
     def get(self):
-        self.render('index.html')
-        print(testfig)
+        user_id = self.current_user
+        if not user_id:
+            self.render('index.html')
+        else:
+            user = self.get_user()
+            profile = user['profile']
+            name = '{} {}'.format(
+                profile['orcid-bio']['personal-details'].get('given-names'),
+                profile['orcid-bio']['personal-details'].get('family-name'),
+            )
+            t_dict = {
+                'name': name,
+                'orcid': user_id,
+                'details': profile
+            }
+            self.render('loggedin.html', **t_dict)
 
-class AuthLogoutHandler(tornado.web.RequestHandler):
+
+class AuthLogoutHandler(BaseHandler):
+    allow_nonactive = True
+
+    @tornado.web.authenticated
     def get(self):
         self.clear_cookie("user")
         self.redirect("/")
 
 
+class VerifyEmailHandler(tornado.web.RequestHandler):
+    def get(self, *args, **kwargs):
+        token = self.get_argument('token')
+        result = user_manager.get_user_by_token(token)
+        if result is None:
+            self.send_error(404)
+        else:
+            user_id, user = result
+            user_manager.set_user_active(user_id)
+            self.set_secure_cookie('user', user_id)  # log in if user is not logged in
+            self.redirect('/')
+
+
+class EmailSentHandler(BaseHandler):
+    allow_nonactive = True
+
+    def get(self, *args, **kwargs):
+        self.render("email_sent.html")
+
+
+class EnterEmailHandler(BaseHandler):
+    allow_nonactive = True
+
+    @tornado.web.authenticated
+    def get(self, *args, **kwargs):
+        self.render("enter_email.html")
+
+    @gen.coroutine
+    @tornado.web.authenticated
+    def post(self, *args, **kwargs):
+        self.check_xsrf_cookie()
+        email = self.get_argument('email')
+        user_id = self.current_user
+        user_manager.set_user_email(user_id, email)
+        token = self.get_verify_token()
+        yield send_email(
+            email,
+            "Please verify your email",
+            '<a href="{}">Click</a> to verify your email'.format(
+                "{}/verify?token={}".format(self.settings['server_address'], token)
+            )
+        )
+        user_manager.set_user_verify_token(user_id, token)
+        self.redirect('emailsent')
+
+    def get_verify_token(self):
+        return to_unicode(binascii.hexlify(os.urandom(64)))
+
+
+@gen.coroutine
+def send_email(to_email, subject, html_body):
+    smtp = TornadoSMTP(SMTP_SERVER, SMTP_PORT)
+    if SMTP_USERNAME and SMTP_PASSWORD:
+        yield smtp.starttls()
+        yield smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['To'] = to_email
+    msg['From'] = FROM_EMAIL
+    msg.add_header('Content-Type', 'text/html')
+    msg.set_payload(html_body)
+
+    yield smtp.send_message(msg)
+
+
 class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
+    def _get_flattened_profile_doc(self, doc):
+        result = {}
+        for key, value in doc.items():
+            if isinstance(value, dict):
+                if 'value' in value:
+                    value = value['value']
+                else:
+                    value = self._get_flattened_profile_doc(value)
+            result[key] = value
+        return result
+
+    def get_profile(self, bio_response):
+        profile = bio_response["orcid-profile"]
+        return self._get_flattened_profile_doc(profile)
+
+    def get_profile_email(self, profile):
+        bio = profile.get('orcid-bio')
+        if bio:
+            contact = bio.get('contact-details')
+            if contact:
+                email = contact.get('email')
+                if email:
+                    return email[0].get("value")
+
     @gen.coroutine
     def get(self):
         if self.get_argument('code', False):
@@ -90,38 +196,34 @@ class OrcidOAuth2LoginHandler(tornado.web.RequestHandler, OrcidOAuth2Mixin):
                 self.set_secure_cookie('openid_state', state)
                 yield self.authorize_redirect(state)
                 return
-            orcid=user0['orcid']
 
-
+            orcid = user0['orcid']
 
             user1 = yield super(OrcidOAuth2LoginHandler, self).get_read_public_access(
                 redirect_uri=self.settings['orcid_oauth']['redirect_uri'])
 
-            access_token_string=str(user1['access_token'])
-            self.set_secure_cookie("google_access_token", user1['access_token'])
-            user = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
+            access_token = user1['access_token']
+            self.set_secure_cookie("orcid_access_token", access_token)
+            bio = yield super(OrcidOAuth2LoginHandler, self).get_user_bio(
                 orcid_id=orcid,
-                access_token=access_token_string)
-            # this is where we can read user information from Orcid
-            # self.write(str(user))
-
-            profile=""
-            root = objectify.fromstring(str(user))
-            for element in root.iter():
-                profile=profile+ "%s - %s , " % (str(element.tag).replace("{http://www.orcid.org/ns/orcid}", ""), element.text)
-
-            t_dict = {'username': 'jack'}
-            t_dict['orcid'] = orcid
-            t_dict['details'] = profile
-            self.render('loggedin.html', **t_dict)
-
-            print("timeout, please login again")
+                access_token=access_token)
+            profile = self.get_profile(json.loads(bio.decode('utf-8')))
+            email = self.get_profile_email(profile)
+            user = user_manager.get_user(orcid)
+            active = True
+            if user is None:
+                active = bool(email)
+                user_manager.store_user(orcid, email, active=active, profile=profile)
+            self.set_secure_cookie('user', orcid)
+            if not active:
+                self.redirect('enteremail')
+            else:
+                self.redirect('/')
             return
 
         state = self._get_state()
         self.set_secure_cookie('openid_state', state)
         yield self.authorize_redirect(state)
-
 
     def get_authenticated_user(self):
         return super(OrcidOAuth2LoginHandler, self).get_authenticated_user(

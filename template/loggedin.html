@@ -1,48 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Test Orcid Auth in Tornado</title>
-    <style>
-        body {
-        background-color:#225264;
-            margin-left: 200px;
-            margin-top:200px;
-        }
-
-        body a
-        {
-            color:yellow;
-        }
-        #title
-        {
-            color:white;
-        font-family: "Heiti TC";
-            font-weight: bold;
-            font-size: 48px;
-
-        }
-        #message
-        {
-            color:white;
-            font-family: Tahoma;
-            margin-top: 8px;
-        }
-    </style>
-</head>
-<body>
-    <div id="title">
-        Hello, you are {{ username }}.
+{% extends "base.html" %}
+{% block body %}
+    <div class="title">
+        Hello, you are {{ name }}.
     </div>
-    <div id="message">
+    <div class="message">
         Your ORCID is <span style="color:yellow">{{ orcid }}.</span>
     </div>
-    <div id="message2">
+    <div class="message">
         Profile details : <span style="color:yellow">{{ details }}.</span>
     </div>
-<div id="message3">
-        Click here to signout : <a href="/logout">SIGNOUT</a>
+    <div class="message">
+        Manage API keys : <a href="/api_keys">API KEYS</a>
     </div>
-
-</body>
-</html>
+    <div class="message">
+        Click here to logout : <a href="/logout">LOGOUT</a>
+    </div>
+{% end %}

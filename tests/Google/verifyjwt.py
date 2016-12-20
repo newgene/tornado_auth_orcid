@@ -28,6 +28,6 @@ class GoogleIdToken(object):
                     if token['aud'] == audience and (clientId == token['cid'] if clientId is not None else True):
                         self._token = token
                         return True
-            except Exception, e:
+            except Exception as e:
                 print("Error decoding: %s" % e.message)
         return False

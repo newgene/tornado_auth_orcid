@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block body %}
+    <div class="title">
+        Please enter your email
+    </div>
+    <div class="message">
+        <form method="post" id="email_form">
+            {% module xsrf_form_html() %}
+            <fieldset>
+                <label for="email">Email</label>
+                <input class="text-input" id="email" name="email" type="email" value="">
+            </fieldset>
+            <div id="form_btn">
+                <input class="btn" type="submit" value="Enter" tabindex="3">
+            </div>
+        </form>
+    </div>
+{% end %}
