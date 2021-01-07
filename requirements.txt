@@ -1,6 +1,6 @@
 elasticsearch==2.4.0
 jwt==0.3.2
-lxml==3.7.0
+lxml==4.6.2
 pathlib==1.0.1
 pycrypto==2.6.1
 requests==2.12.4
