@@ -7,4 +7,4 @@ requests==2.12.4
 tornado==4.4.2
 tornado-smtp==0.1.1
 urllib3==1.19.1
-wheel==0.26.0
+wheel==0.38.1
